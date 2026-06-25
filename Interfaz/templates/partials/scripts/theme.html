@@ -1,0 +1,30 @@
+<script>
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.querySelector('[data-theme-toggle]');
+
+    function currentTheme() {
+      return root.dataset.theme === 'dark' ? 'dark' : 'light';
+    }
+
+    function updateThemeButton() {
+      if (!toggle) {
+        return;
+      }
+
+      var theme = currentTheme();
+      toggle.setAttribute('aria-label', theme === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro');
+    }
+
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        var nextTheme = currentTheme() === 'dark' ? 'light' : 'dark';
+        root.dataset.theme = nextTheme;
+        window.localStorage.setItem('theme', nextTheme);
+        updateThemeButton();
+      });
+    }
+
+    updateThemeButton();
+  })();
+</script>

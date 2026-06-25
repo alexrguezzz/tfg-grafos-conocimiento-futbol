@@ -1,0 +1,7 @@
+{% if cell is mapping and cell.href %}
+  <a class="{{ cell.class|default('table-link') }}" href="{{ cell.href }}"{% if cell.target %} target="{{ cell.target }}" rel="noopener"{% endif %}>{{ cell.text }}</a>
+{% elif cell is mapping and cell.html %}
+  {{ cell.html | safe }}
+{% else %}
+  {{ cell }}
+{% endif %}

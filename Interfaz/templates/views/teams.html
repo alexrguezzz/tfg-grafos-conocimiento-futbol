@@ -1,0 +1,164 @@
+{% macro render_table(headers, rows) -%}
+  <div class="body table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for header in headers %}
+            <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+              <td>{% include "partials/table_cell.html" %}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{%- endmacro %}
+
+{% if team_detail %}
+<section class="grid single-column entity-detail-grid" data-view="team-detail">
+  <article class="table-card">
+    <div class="head"><h2>Resumen del equipo</h2></div>
+    {% if team_detail.classification_rows %}
+      {{ render_table(team_detail.classification_headers, team_detail.classification_rows) }}
+    {% else %}
+      <div class="body"><p>Informacion no disponible</p></div>
+    {% endif %}
+  </article>
+
+  <article class="panel elo-date-card">
+    <div class="head"><h3>ELO en una fecha</h3></div>
+    <div class="body">
+      <form class="elo-date-form" method="get" action="{{ url_for('teams') }}">
+        <input type="hidden" name="team" value="{{ title }}">
+        {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+        {% if filter_state.competition != 'all' %}<input type="hidden" name="competition" value="{{ filter_state.competition }}">{% endif %}
+        {% if filter_state.season != 'all' %}<input type="hidden" name="season" value="{{ filter_state.season }}">{% endif %}
+        {% for jornada in filter_state.jornadas %}<input type="hidden" name="jornadas" value="{{ jornada }}">{% endfor %}
+        {% if filter_state.date_from %}<input type="hidden" name="date_from" value="{{ filter_state.date_from }}">{% endif %}
+        {% if filter_state.date_to %}<input type="hidden" name="date_to" value="{{ filter_state.date_to }}">{% endif %}
+        {% if team_detail.squad_selected_season %}<input type="hidden" name="squad_season" value="{{ team_detail.squad_selected_season }}">{% endif %}
+        {% if team_detail.match_selected_season %}<input type="hidden" name="team_matches_season" value="{{ team_detail.match_selected_season }}">{% endif %}
+        <label>
+          <span>Fecha</span>
+          <input type="date" name="elo_date" value="{{ team_detail.elo_date }}">
+        </label>
+        <button type="submit">Consultar</button>
+      </form>
+      {% if team_detail.elo_at_date %}
+        <div class="elo-date-result">
+          <strong>{{ team_detail.elo_at_date.value }}</strong>
+          {% if team_detail.elo_at_date.period %}
+            <small>{{ team_detail.elo_at_date.period }}</small>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="head"><h3>Evolucion ELO</h3></div>
+    <div class="body">
+      {% if team_detail.elo_panel %}
+        {{ team_detail.elo_panel.html | safe }}
+      {% else %}
+        <p>Informacion no disponible</p>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="table-card">
+    <div class="head">
+      <h2>Plantilla</h2>
+      {% if team_detail.season_options %}
+        <form class="inline-filter" method="get" action="{{ url_for('teams') }}">
+          <input type="hidden" name="team" value="{{ title }}">
+          {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+          {% if filter_state.competition != 'all' %}<input type="hidden" name="competition" value="{{ filter_state.competition }}">{% endif %}
+          {% if filter_state.season != 'all' %}<input type="hidden" name="season" value="{{ filter_state.season }}">{% endif %}
+          {% for jornada in filter_state.jornadas %}<input type="hidden" name="jornadas" value="{{ jornada }}">{% endfor %}
+          {% if filter_state.date_from %}<input type="hidden" name="date_from" value="{{ filter_state.date_from }}">{% endif %}
+          {% if filter_state.date_to %}<input type="hidden" name="date_to" value="{{ filter_state.date_to }}">{% endif %}
+          {% if team_detail.elo_date %}<input type="hidden" name="elo_date" value="{{ team_detail.elo_date }}">{% endif %}
+          <input type="hidden" name="team_matches_season" value="{{ team_detail.match_selected_season }}">
+          <span>Temporada</span>
+          <select name="squad_season" aria-label="Temporada de plantilla" onchange="this.form.submit()">
+            {% for season in team_detail.season_options %}
+              <option value="{{ season }}" {% if season == team_detail.squad_selected_season %}selected{% endif %}>{{ season }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      {% endif %}
+    </div>
+    {% if team_detail.squad_rows %}
+      {{ render_table(team_detail.squad_headers, team_detail.squad_rows) }}
+    {% else %}
+      <div class="body"><p>Informacion no disponible</p></div>
+    {% endif %}
+  </article>
+
+  <article class="table-card">
+    <div class="head">
+      <h2>Partidos del equipo</h2>
+      {% if team_detail.season_options %}
+        <form class="inline-filter" method="get" action="{{ url_for('teams') }}">
+          <input type="hidden" name="team" value="{{ title }}">
+          {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+          {% if filter_state.competition != 'all' %}<input type="hidden" name="competition" value="{{ filter_state.competition }}">{% endif %}
+          {% if filter_state.season != 'all' %}<input type="hidden" name="season" value="{{ filter_state.season }}">{% endif %}
+          {% for jornada in filter_state.jornadas %}<input type="hidden" name="jornadas" value="{{ jornada }}">{% endfor %}
+          {% if filter_state.date_from %}<input type="hidden" name="date_from" value="{{ filter_state.date_from }}">{% endif %}
+          {% if filter_state.date_to %}<input type="hidden" name="date_to" value="{{ filter_state.date_to }}">{% endif %}
+          {% if team_detail.elo_date %}<input type="hidden" name="elo_date" value="{{ team_detail.elo_date }}">{% endif %}
+          {% if team_detail.squad_selected_season %}<input type="hidden" name="squad_season" value="{{ team_detail.squad_selected_season }}">{% endif %}
+          <span>Temporada</span>
+          <select name="team_matches_season" aria-label="Temporada de partidos" onchange="this.form.submit()">
+            <option value="all" {% if team_detail.match_selected_season == 'all' %}selected{% endif %}>Todos</option>
+            {% for season in team_detail.season_options %}
+              <option value="{{ season }}" {% if season == team_detail.match_selected_season %}selected{% endif %}>{{ season }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      {% endif %}
+    </div>
+    {% if team_detail.match_rows %}
+      {{ render_table(team_detail.match_headers, team_detail.match_rows) }}
+    {% else %}
+      <div class="body"><p>Informacion no disponible</p></div>
+    {% endif %}
+  </article>
+</section>
+{% else %}
+<section class="grid" data-view="teams">
+  {% if rows %}
+    <article class="table-card">
+      <div class="head"><h2>Equipos</h2></div>
+      {{ render_table(headers, rows) }}
+    </article>
+  {% endif %}
+
+  {% if panels %}
+    <article class="panel">
+      <div class="head"><h3>{{ panels[0].title }}</h3></div>
+      <div class="body">
+        {% for panel in panels %}
+          {% if not loop.first %}<h3>{{ panel.title }}</h3>{% endif %}
+          {% if panel.kind == 'html' %}
+            {{ panel.html | safe }}
+          {% else %}
+            <p>{{ panel.text }}</p>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </article>
+  {% elif not rows %}
+    <article class="empty">Informacion no disponible</article>
+  {% endif %}
+</section>
+{% endif %}

@@ -1,0 +1,198 @@
+{% macro render_table(headers, rows) -%}
+  <div class="body table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for header in headers %}
+            <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+              <td>{% include "partials/table_cell.html" %}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{%- endmacro %}
+
+<section class="compare-layout" data-view="compare">
+  <article class="compare-card">
+    <div class="head compare-head">
+      <h2>Seleccion de {{ 'jugadores' if compare_type == 'players' else 'equipos' }}</h2>
+    </div>
+
+    <div class="body">
+      <form method="get" action="{{ url_for('compare') }}" class="compare-form">
+        {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+        <input type="hidden" name="compare_type" value="{{ compare_type }}">
+        {% if filter_state.competition != 'all' %}<input type="hidden" name="competition" value="{{ filter_state.competition }}">{% endif %}
+        {% if filter_state.season != 'all' %}<input type="hidden" name="season" value="{{ filter_state.season }}">{% endif %}
+        {% for jornada in filter_state.jornadas %}<input type="hidden" name="jornadas" value="{{ jornada }}">{% endfor %}
+        {% if filter_state.date_from %}<input type="hidden" name="date_from" value="{{ filter_state.date_from }}">{% endif %}
+        {% if filter_state.date_to %}<input type="hidden" name="date_to" value="{{ filter_state.date_to }}">{% endif %}
+
+        <input
+          type="text"
+          name="{{ 'team_a' if compare_type == 'teams' else 'player_a' }}"
+          value="{{ entity_a }}"
+          list="compare-options-{{ compare_type }}"
+          placeholder="{{ compare_selector_label|default('Equipo') }} A"
+          autocomplete="off"
+        >
+
+        <input
+          type="text"
+          name="{{ 'team_b' if compare_type == 'teams' else 'player_b' }}"
+          value="{{ entity_b }}"
+          list="compare-options-{{ compare_type }}"
+          placeholder="{{ compare_selector_label|default('Equipo') }} B"
+          autocomplete="off"
+        >
+
+        <datalist id="compare-options-{{ compare_type }}">
+          {% for option in entity_options %}
+            <option value="{{ option }}"></option>
+          {% endfor %}
+        </datalist>
+
+        <button type="submit">Comparar</button>
+      </form>
+    </div>
+  </article>
+
+  {% if compare_data %}
+    <section class="compare-versus" aria-label="Enfrentamiento comparado">
+      <div class="compare-versus-entity">
+        {% set cell = compare_data.item_a.link %}
+        {% include "partials/table_cell.html" %}
+      </div>
+      <strong>VS</strong>
+      <div class="compare-versus-entity">
+        {% set cell = compare_data.item_b.link %}
+        {% include "partials/table_cell.html" %}
+      </div>
+    </section>
+
+    <section class="compare-summary-grid">
+      <article class="compare-technical-card is-left">
+        <div class="head">
+          <h2>
+            {% set cell = compare_data.item_a.link %}
+            {% include "partials/table_cell.html" %}
+          </h2>
+        </div>
+        <div class="body compare-fields">
+          {% for field in compare_data.item_a.fields %}
+            <div class="compare-field">
+              <span>{{ field.label }}</span>
+              <strong>
+                {% set cell = field.value %}
+                {% include "partials/table_cell.html" %}
+              </strong>
+            </div>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="compare-main-card">
+        <div class="head"><h2>Metricas principales</h2></div>
+        <div class="body table-wrap compare-main-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{% set cell = compare_data.item_a.link %}{% include "partials/table_cell.html" %}</th>
+                <th>Metrica</th>
+                <th>{% set cell = compare_data.item_b.link %}{% include "partials/table_cell.html" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in compare_data.main_metrics %}
+                <tr>
+                  {% for cell in row %}
+                    <td>{% include "partials/table_cell.html" %}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="compare-technical-card is-right">
+        <div class="head">
+          <h2>
+            {% set cell = compare_data.item_b.link %}
+            {% include "partials/table_cell.html" %}
+          </h2>
+        </div>
+        <div class="body compare-fields">
+          {% for field in compare_data.item_b.fields %}
+            <div class="compare-field">
+              <span>{{ field.label }}</span>
+              <strong>
+                {% set cell = field.value %}
+                {% include "partials/table_cell.html" %}
+              </strong>
+            </div>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+
+    <article class="table-card compare-detail-table">
+      <div class="head"><h2>Comparativa detallada</h2></div>
+      <div class="body table-wrap compare-detail-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{% set cell = compare_data.item_a.link %}{% include "partials/table_cell.html" %}</th>
+              <th>Metrica</th>
+              <th>{% set cell = compare_data.item_b.link %}{% include "partials/table_cell.html" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for section in compare_data.detailed_sections %}
+              <tr class="compare-section-row">
+                <th colspan="3"><span>{{ section.title }}</span></th>
+              </tr>
+              {% for row in section.rows %}
+                <tr>
+                  {% for cell in row %}
+                    <td>{% include "partials/table_cell.html" %}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    {% if compare_data.panels %}
+      <section class="compare-panel-grid">
+        {% for panel in compare_data.panels %}
+          <article class="panel">
+            <div class="head"><h3>{{ panel.title }}</h3></div>
+            <div class="body">
+              {% if panel.kind == 'html' %}
+                {{ panel.html | safe }}
+              {% else %}
+                <p>{{ panel.text }}</p>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </section>
+    {% endif %}
+  {% elif panels %}
+    <article class="empty">Informacion no disponible</article>
+  {% else %}
+    <article class="empty">Selecciona dos {{ 'jugadores' if compare_type == 'players' else 'equipos' }} para comparar.</article>
+  {% endif %}
+</section>

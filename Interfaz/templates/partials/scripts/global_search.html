@@ -1,0 +1,234 @@
+<script>
+  (function () {
+    var form = document.querySelector('[data-global-search]');
+    if (!form) {
+      return;
+    }
+
+    var input = form.querySelector('[data-global-search-input]');
+    var resultsBox = form.querySelector('[data-global-search-results]');
+    var endpoint = form.getAttribute('data-search-endpoint');
+    var debounceId = 0;
+    var activeIndex = -1;
+    var results = [];
+    var requestController = null;
+    var minLength = 2;
+
+    if (!input || !resultsBox || !endpoint) {
+      return;
+    }
+
+    function buildSearchUrl(query) {
+      var url = new URL(endpoint, window.location.origin);
+      var currentParams = new URLSearchParams(window.location.search);
+
+      ['competition', 'season', 'date_from', 'date_to'].forEach(function (key) {
+        var value = currentParams.get(key);
+        if (value) {
+          url.searchParams.set(key, value);
+        }
+      });
+
+      currentParams.getAll('jornadas').forEach(function (value) {
+        if (value) {
+          url.searchParams.append('jornadas', value);
+        }
+      });
+
+      url.searchParams.set('q', query);
+      return url.toString();
+    }
+
+    function labelForKind(kind) {
+      return kind === 'player' ? 'Jugador' : 'Equipo';
+    }
+
+    function closeResults() {
+      activeIndex = -1;
+      resultsBox.hidden = true;
+      resultsBox.innerHTML = '';
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+    }
+
+    function setActiveIndex(nextIndex) {
+      var options = Array.prototype.slice.call(resultsBox.querySelectorAll('.search-option'));
+      activeIndex = options.length ? (nextIndex + options.length) % options.length : -1;
+
+      options.forEach(function (option, index) {
+        var isActive = index === activeIndex;
+        option.classList.toggle('is-active', isActive);
+        option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        if (isActive) {
+          input.setAttribute('aria-activedescendant', option.id);
+          option.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    }
+
+    function navigateTo(item) {
+      if (item && item.href) {
+        window.location.href = item.href;
+      }
+    }
+
+    function renderMessage(message) {
+      results = [];
+      activeIndex = -1;
+      resultsBox.innerHTML = '';
+
+      var empty = document.createElement('div');
+      empty.className = 'search-empty';
+      empty.textContent = message;
+      resultsBox.appendChild(empty);
+      resultsBox.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      input.removeAttribute('aria-activedescendant');
+    }
+
+    function renderResults(items) {
+      results = items || [];
+      activeIndex = -1;
+      resultsBox.innerHTML = '';
+
+      if (!results.length) {
+        renderMessage('Sin coincidencias');
+        return;
+      }
+
+      results.forEach(function (item, index) {
+        var option = document.createElement('button');
+        var label = document.createElement('span');
+        var kind = document.createElement('span');
+
+        option.type = 'button';
+        option.className = 'search-option';
+        option.id = 'global-search-option-' + index;
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', 'false');
+
+        label.className = 'search-label';
+        label.textContent = item.label || '';
+
+        kind.className = 'search-kind';
+        kind.textContent = labelForKind(item.kind);
+
+        option.appendChild(label);
+        option.appendChild(kind);
+        option.addEventListener('mousedown', function (event) {
+          event.preventDefault();
+        });
+        option.addEventListener('click', function () {
+          navigateTo(item);
+        });
+
+        resultsBox.appendChild(option);
+      });
+
+      resultsBox.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+    }
+
+    function fetchResults() {
+      var query = input.value.trim();
+      if (query.length < minLength) {
+        closeResults();
+        return;
+      }
+
+      if (requestController) {
+        requestController.abort();
+      }
+
+      requestController = new AbortController();
+      fetch(buildSearchUrl(query), {
+        headers: { Accept: 'application/json' },
+        signal: requestController.signal,
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('search failed');
+          }
+          return response.json();
+        })
+        .then(function (data) {
+          if (input.value.trim() !== query) {
+            return;
+          }
+          renderResults(data.results || []);
+        })
+        .catch(function (error) {
+          if (error.name === 'AbortError') {
+            return;
+          }
+          renderMessage('No se pudo buscar');
+        });
+    }
+
+    input.addEventListener('input', function () {
+      window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(fetchResults, 180);
+    });
+
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        closeResults();
+        return;
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (!results.length) {
+          fetchResults();
+          return;
+        }
+        setActiveIndex(activeIndex + 1);
+        return;
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (results.length) {
+          setActiveIndex(activeIndex - 1);
+        }
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (activeIndex >= 0) {
+          navigateTo(results[activeIndex]);
+          return;
+        }
+        if (results.length) {
+          navigateTo(results[0]);
+          return;
+        }
+        fetchResults();
+      }
+    });
+
+    input.addEventListener('focus', function () {
+      if (input.value.trim().length >= minLength && !results.length) {
+        fetchResults();
+      }
+    });
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (activeIndex >= 0) {
+        navigateTo(results[activeIndex]);
+      } else if (results.length) {
+        navigateTo(results[0]);
+      } else {
+        fetchResults();
+      }
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!form.contains(event.target)) {
+        closeResults();
+      }
+    });
+  })();
+</script>

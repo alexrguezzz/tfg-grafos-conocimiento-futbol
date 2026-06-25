@@ -1,0 +1,53 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.pytest_tmp_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Test and coverage artifacts
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Packaging/build artifacts
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local environment files and secrets
+.env
+.env.*
+*.env
+*.evn
+!**/.env.example
+
+# Generated pipeline artifacts
+Pipeline/data/
+Pipeline/logs/
+Pipeline/downloaded_files/
+Pipeline/tests/runtime/
+
+# Flask/local runtime
+Interfaz/instance/
+
+# Local OS/editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Local agent metadata
+.agents/
+.codex/

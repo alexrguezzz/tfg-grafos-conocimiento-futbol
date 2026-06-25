@@ -1,0 +1,47 @@
+<section class="grid" data-view="matches">
+  {% if rows %}
+    <article class="table-card">
+      <div class="head"><h2>Partidos</h2></div>
+      <div class="body local-filter-body">
+        {% include "partials/local_match_filters.html" %}
+      </div>
+      <div class="body table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {% for header in headers %}
+                <th>{{ header }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                {% for cell in row %}
+                  <td>{% include "partials/table_cell.html" %}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  {% endif %}
+
+  {% if panels %}
+    <article class="panel">
+      <div class="head"><h3>{{ panels[0].title }}</h3></div>
+      <div class="body">
+        {% for panel in panels %}
+          {% if panel.kind == 'html' %}
+            {{ panel.html | safe }}
+          {% else %}
+            <p>{{ panel.text }}</p>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </article>
+  {% elif not rows %}
+    <article class="empty">Informacion no disponible</article>
+  {% endif %}
+</section>

@@ -1,0 +1,39 @@
+<form class="local-filter-form" method="get" action="{{ request.path }}" data-local-filter-form>
+  {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+  {% if filter_state.competition != 'all' %}<input type="hidden" name="competition" value="{{ filter_state.competition }}">{% endif %}
+  {% if filter_state.season != 'all' %}<input type="hidden" name="season" value="{{ filter_state.season }}">{% endif %}
+
+  <div class="field">
+    <label>Jornadas</label>
+    <div class="dropdown" data-dropdown>
+      <button type="button" class="dropdown-trigger" data-trigger>
+        <span data-dropdown-label>Todas</span>
+        <span>▼</span>
+      </button>
+      <div class="dropdown-menu" data-menu>
+        <label class="check">
+          <input type="checkbox" data-all>
+          <span>Todas</span>
+        </label>
+        {% for jornada in jornadas_options %}
+          <label class="check">
+            <input type="checkbox" name="jornadas" value="{{ jornada }}" data-jornada {% if jornada in filter_state.jornadas %}checked{% endif %}>
+            <span>Jornada {{ jornada }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Rango de fechas</label>
+    <div class="date-wrap">
+      <input type="date" name="date_from" value="{{ filter_state.date_from }}">
+      <input type="date" name="date_to" value="{{ filter_state.date_to }}">
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" type="submit">Aplicar</button>
+  </div>
+</form>

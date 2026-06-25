@@ -1,0 +1,17 @@
+<script>
+  (function () {
+    var filterForms = document.querySelectorAll('[data-filter-form], [data-local-filter-form]');
+
+    filterForms.forEach(function (filterForm) {
+      filterForm.addEventListener('submit', function (event) {
+        var dateFrom = filterForm.querySelector('input[name="date_from"]');
+        var dateTo = filterForm.querySelector('input[name="date_to"]');
+
+        if (dateFrom && dateTo && dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
+          event.preventDefault();
+          window.alert('Rango invalido: la fecha desde no puede ser mayor que la fecha hasta.');
+        }
+      });
+    });
+  })();
+</script>

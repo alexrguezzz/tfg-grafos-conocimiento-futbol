@@ -1,0 +1,122 @@
+{% macro render_table(headers, rows) -%}
+  <div class="body table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for header in headers %}
+            <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+              <td>{% include "partials/table_cell.html" %}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{%- endmacro %}
+
+{% if dashboard %}
+<section class="home-dashboard" data-view="home">
+  <article class="table-card home-main-table">
+    <div class="head">
+      <h2>Clasificacion reducida</h2>
+      <a class="btn table-head-btn" href="{{ dashboard.standings_url }}">Completa</a>
+    </div>
+    {{ render_table(dashboard.standings.headers, dashboard.standings.rows) }}
+  </article>
+
+  <div class="home-leaders-row">
+    <article class="table-card home-leader-card">
+      <div class="head">
+        <h2>Goleadores</h2>
+        <a class="btn table-head-btn" href="{{ dashboard.scorers_url }}">Completa</a>
+      </div>
+      {{ render_table(dashboard.scorers.headers, dashboard.scorers.rows) }}
+    </article>
+
+    <article class="table-card home-leader-card">
+      <div class="head">
+        <h2>Asistentes</h2>
+        <a class="btn table-head-btn" href="{{ dashboard.assists_url }}">Completa</a>
+      </div>
+      {{ render_table(dashboard.assists.headers, dashboard.assists.rows) }}
+    </article>
+  </div>
+
+  <div class="home-side-stack">
+    <article class="panel home-elo-panel">
+      <div class="head"><h3>Equipos destacados por ELO</h3></div>
+      <div class="body">
+        {% if dashboard.elo %}
+          <ol class="rank-list">
+            {% for row in dashboard.elo %}
+              <li>
+                {% set cell = row.team %}
+                {% include "partials/table_cell.html" %}
+                <strong>{{ row.elo }}</strong>
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p>Informacion no disponible</p>
+        {% endif %}
+      </div>
+    </article>
+
+    <article class="panel home-result-panel">
+      <div class="head"><h3>Distribucion de resultados</h3></div>
+      <div class="body">
+        <div
+          class="result-chart"
+          aria-label="Distribucion de resultados"
+          style="--home-pct: {{ dashboard.result_distribution[0].pct|float }}%; --draw-pct: {{ dashboard.result_distribution[1].pct|float }}%; --away-pct: {{ dashboard.result_distribution[2].pct|float }}%;"
+        >
+          <div class="result-pie" aria-hidden="true"></div>
+          <div class="result-list">
+            {% for item in dashboard.result_distribution %}
+              <div class="result-item">
+                <span class="result-dot {{ item.class }}" aria-hidden="true"></span>
+                <span>{{ item.label }}</span>
+                <strong>{{ item.pct_label }}</strong>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <article class="table-card home-main-table">
+    <div class="head">
+      <h2>Ultimos partidos</h2>
+      <a class="btn table-head-btn" href="{{ dashboard.matches_url }}">Todos</a>
+    </div>
+    {{ render_table(dashboard.recent_matches.headers, dashboard.recent_matches.rows) }}
+  </article>
+</section>
+{% elif panels %}
+<section class="grid" data-view="home">
+  <article class="panel">
+    <div class="head"><h3>{{ panels[0].title }}</h3></div>
+    <div class="body">
+      {% for panel in panels %}
+        {% if panel.kind == 'html' %}
+          {{ panel.html | safe }}
+        {% else %}
+          <p>{{ panel.text }}</p>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% else %}
+<section class="grid" data-view="home">
+  <article class="empty">Informacion no disponible</article>
+</section>
+{% endif %}

@@ -1,0 +1,428 @@
+<script>
+  (function () {
+    var body = document.body;
+    var splash = document.querySelector('[data-splash]');
+    var onboarding = document.querySelector('[data-onboarding]');
+    var openButtons = Array.from(document.querySelectorAll('[data-open-onboarding]'));
+    var onboardingClose = document.querySelector('[data-onboarding-close]');
+    var onboardingProgress = document.querySelector('[data-onboarding-progress]');
+    var stepLabel = document.querySelector('[data-step-label]');
+    var stepPanels = onboarding ? Array.from(onboarding.querySelectorAll('[data-step-panel]')) : [];
+    var leagueGrid = onboarding ? onboarding.querySelector('.league-grid') : null;
+    var seasonGrid = onboarding ? onboarding.querySelector('.season-grid') : null;
+    var leagueCards = [];
+    var seasonCards = [];
+    var stepNext = document.querySelector('[data-step-next]');
+    var stepBack = document.querySelector('[data-step-back]');
+    var selectionForm = onboarding ? onboarding.querySelector('.onboarding-form') : null;
+    var optionsEndpoint = onboarding ? onboarding.getAttribute('data-options-endpoint') : '';
+    var splashAlreadySeen = window.sessionStorage.getItem('datagol_splash_seen') === '1';
+    var onboardingRequired = body.dataset.onboardingRequired === '1';
+    var loadingOptions = false;
+
+    function refreshCardRefs() {
+      leagueCards = onboarding ? Array.from(onboarding.querySelectorAll('.league-card')) : [];
+      seasonCards = onboarding ? Array.from(onboarding.querySelectorAll('.season-card')) : [];
+    }
+
+    function setOnboardingVisible(visible) {
+      if (!onboarding) {
+        return;
+      }
+      onboarding.classList.toggle('is-visible', visible);
+      body.classList.toggle('onboarding-active', visible);
+    }
+
+    function setOnboardingStep(stepNumber) {
+      if (!onboarding) {
+        return;
+      }
+
+      stepPanels.forEach(function (panel, index) {
+        var isActive = index === (stepNumber - 1);
+        panel.classList.toggle('is-active', isActive);
+        panel.classList.remove('is-leaving');
+      });
+
+      if (stepLabel) {
+        stepLabel.textContent = 'Paso ' + stepNumber + ' de 2';
+      }
+
+      if (onboardingProgress) {
+        onboardingProgress.classList.toggle('is-step-2', stepNumber === 2);
+      }
+    }
+
+    function syncCardState(card) {
+      var input = card.querySelector('input');
+      if (!input) {
+        return;
+      }
+      card.classList.toggle('is-selected', input.checked);
+    }
+
+    function syncAllCards() {
+      refreshCardRefs();
+      leagueCards.forEach(syncCardState);
+      seasonCards.forEach(syncCardState);
+    }
+
+    function selectedCount(cards) {
+      return cards.filter(function (card) {
+        var input = card.querySelector('input');
+        return input && input.checked && !input.disabled && !card.hidden;
+      }).length;
+    }
+
+    function splitIris(value) {
+      return (value || '').split(/\s+/).filter(Boolean);
+    }
+
+    function selectedLeagueInput() {
+      refreshCardRefs();
+      return leagueCards
+        .map(function (card) {
+          return card.querySelector('input');
+        })
+        .find(function (input) {
+          return input && input.checked;
+        });
+    }
+
+    function availableSeasonCards() {
+      refreshCardRefs();
+      return seasonCards.filter(function (card) {
+        var input = card.querySelector('input');
+        return input && !input.disabled && !card.hidden;
+      });
+    }
+
+    function updateSeasonAvailability() {
+      var selectedLeague = selectedLeagueInput();
+      var selectedCompetitionIri = selectedLeague ? selectedLeague.value : '';
+
+      refreshCardRefs();
+      seasonCards.forEach(function (card) {
+        var input = card.querySelector('input');
+        var competitionIris = splitIris(card.dataset.competitionIris);
+        var isAvailable = !selectedCompetitionIri || competitionIris.indexOf(selectedCompetitionIri) !== -1;
+
+        card.hidden = !isAvailable;
+        if (input) {
+          input.disabled = !isAvailable;
+          if (!isAvailable && input.checked) {
+            input.checked = false;
+          }
+        }
+      });
+
+      syncAllCards();
+    }
+
+    function checkedValues(selector) {
+      if (!onboarding) {
+        return [];
+      }
+      return Array.from(onboarding.querySelectorAll(selector + ':checked')).map(function (input) {
+        return input.value;
+      }).filter(Boolean);
+    }
+
+    function emptyMessage(message) {
+      var node = document.createElement('div');
+      node.className = 'onboarding-empty';
+      node.textContent = message;
+      return node;
+    }
+
+    function renderLeagueCard(league, selectedCompetitionIris) {
+      var card = document.createElement('label');
+      var input = document.createElement('input');
+      var mark = document.createElement('span');
+      var fallback = document.createElement('span');
+      var name = document.createElement('span');
+      var seasonIris = Array.isArray(league.season_iris) ? league.season_iris : [];
+      var logoUrl = league.logo_url || '';
+      var selected = selectedCompetitionIris.indexOf(league.iri) !== -1;
+
+      card.className = 'league-card' + (selected ? ' is-selected' : '');
+      card.setAttribute('data-select-card', '');
+
+      input.type = 'radio';
+      input.name = 'competitions';
+      input.value = league.iri || '';
+      input.required = true;
+      input.checked = selected;
+      input.dataset.label = league.label || '';
+      input.dataset.seasonIris = seasonIris.join(' ');
+
+      mark.className = 'league-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      if (logoUrl) {
+        var img = document.createElement('img');
+        img.src = logoUrl;
+        img.alt = '';
+        img.addEventListener('error', function () {
+          img.style.display = 'none';
+          fallback.classList.add('is-visible');
+        });
+        mark.appendChild(img);
+      }
+
+      fallback.className = 'league-fallback' + (logoUrl ? '' : ' is-visible');
+      fallback.textContent = league.fallback || '?';
+      mark.appendChild(fallback);
+
+      name.className = 'league-name';
+      name.textContent = league.label || '';
+
+      card.appendChild(input);
+      card.appendChild(mark);
+      card.appendChild(name);
+      return card;
+    }
+
+    function renderSeasonCard(season, selectedSeasonIris) {
+      var card = document.createElement('label');
+      var input = document.createElement('input');
+      var name = document.createElement('span');
+      var note = document.createElement('span');
+      var competitionIris = Array.isArray(season.competition_iris) ? season.competition_iris : [];
+      var selected = selectedSeasonIris.indexOf(season.iri) !== -1;
+
+      card.className = 'season-card' + (selected ? ' is-selected' : '');
+      card.setAttribute('data-select-card', '');
+      card.dataset.seasonIri = season.iri || '';
+      card.dataset.competitionIris = competitionIris.join(' ');
+
+      input.type = 'radio';
+      input.name = 'seasons';
+      input.value = season.iri || '';
+      input.required = true;
+      input.checked = selected;
+
+      name.className = 'season-name';
+      name.textContent = season.label || '';
+
+      note.className = 'season-note';
+      note.textContent = 'Temporada';
+
+      card.appendChild(input);
+      card.appendChild(name);
+      card.appendChild(note);
+      return card;
+    }
+
+    function bindSelectionInputs() {
+      if (!onboarding) {
+        return;
+      }
+
+      onboarding.querySelectorAll('.league-card input, .season-card input').forEach(function (input) {
+        if (input.dataset.boundSelection === '1') {
+          return;
+        }
+        input.dataset.boundSelection = '1';
+        input.addEventListener('change', function () {
+          if (input.name === 'competitions') {
+            updateSeasonAvailability();
+          }
+          syncAllCards();
+        });
+      });
+    }
+
+    function renderOnboardingOptions(data) {
+      if (!leagueGrid || !seasonGrid) {
+        return;
+      }
+
+      var selectedCompetitionIris = checkedValues('input[name="competitions"]');
+      var selectedSeasonIris = checkedValues('input[name="seasons"]');
+      if (!selectedCompetitionIris.length) {
+        selectedCompetitionIris = data.selected_competition_iris || [];
+      }
+      if (!selectedSeasonIris.length) {
+        selectedSeasonIris = data.selected_season_iris || [];
+      }
+
+      leagueGrid.innerHTML = '';
+      seasonGrid.innerHTML = '';
+
+      if (!data.leagues || !data.leagues.length) {
+        leagueGrid.appendChild(emptyMessage('No hay competiciones disponibles en GraphDB.'));
+      } else {
+        data.leagues.forEach(function (league) {
+          leagueGrid.appendChild(renderLeagueCard(league, selectedCompetitionIris));
+        });
+      }
+
+      if (!data.seasons || !data.seasons.length) {
+        seasonGrid.appendChild(emptyMessage('No hay temporadas disponibles en GraphDB.'));
+      } else {
+        data.seasons.forEach(function (season) {
+          seasonGrid.appendChild(renderSeasonCard(season, selectedSeasonIris));
+        });
+      }
+
+      refreshCardRefs();
+      bindSelectionInputs();
+      updateSeasonAvailability();
+      syncAllCards();
+    }
+
+    function loadOnboardingOptions() {
+      if (!optionsEndpoint || loadingOptions) {
+        return Promise.resolve();
+      }
+
+      loadingOptions = true;
+      return fetch(optionsEndpoint, { headers: { Accept: 'application/json' } })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('No se pudieron consultar las opciones.');
+          }
+          return response.json();
+        })
+        .then(function (data) {
+          renderOnboardingOptions(data);
+        })
+        .catch(function () {
+          window.alert('No se pudieron consultar las competiciones y temporadas en GraphDB.');
+        })
+        .finally(function () {
+          loadingOptions = false;
+        });
+    }
+
+    function animateStep(fromStep, toStep) {
+      var currentPanel = stepPanels[fromStep - 1];
+      var nextPanel = stepPanels[toStep - 1];
+
+      if (!currentPanel || !nextPanel) {
+        return;
+      }
+
+      currentPanel.classList.add('is-leaving');
+      window.setTimeout(function () {
+        currentPanel.classList.remove('is-active', 'is-leaving');
+        nextPanel.classList.add('is-active');
+        setOnboardingStep(toStep);
+      }, 200);
+    }
+
+    function openOnboarding() {
+      if (!onboarding) {
+        return;
+      }
+      updateSeasonAvailability();
+      syncAllCards();
+      setOnboardingStep(1);
+      setOnboardingVisible(true);
+      if (!onboardingRequired) {
+        loadOnboardingOptions();
+      }
+    }
+
+    function closeOnboarding() {
+      if (!onboarding || onboardingRequired) {
+        return;
+      }
+      setOnboardingVisible(false);
+    }
+
+    if (splashAlreadySeen) {
+      body.classList.add('splash-done');
+      if (splash && splash.parentNode) {
+        splash.parentNode.removeChild(splash);
+      }
+    } else {
+      body.classList.add('splashing');
+    }
+
+    if (onboarding) {
+      refreshCardRefs();
+      syncAllCards();
+      stepPanels.forEach(function (panel, index) {
+        panel.classList.toggle('is-active', index === 0);
+      });
+
+      bindSelectionInputs();
+
+      openButtons.forEach(function (button) {
+        button.addEventListener('click', openOnboarding);
+      });
+
+      if (onboardingClose) {
+        onboardingClose.addEventListener('click', closeOnboarding);
+      }
+
+      if (stepNext) {
+        stepNext.addEventListener('click', function () {
+          updateSeasonAvailability();
+          if (selectedCount(leagueCards) === 0) {
+            window.alert('Selecciona una liga para continuar.');
+            return;
+          }
+          if (availableSeasonCards().length === 0) {
+            window.alert('No hay temporadas disponibles para esa liga.');
+            return;
+          }
+          animateStep(1, 2);
+        });
+      }
+
+      if (stepBack) {
+        stepBack.addEventListener('click', function () {
+          animateStep(2, 1);
+        });
+      }
+
+      if (selectionForm) {
+        selectionForm.addEventListener('submit', function (event) {
+          updateSeasonAvailability();
+          if (selectedCount(leagueCards) === 0) {
+            event.preventDefault();
+            window.alert('Selecciona una liga.');
+            return;
+          }
+          if (selectedCount(seasonCards) === 0) {
+            event.preventDefault();
+            window.alert('Selecciona una temporada.');
+          }
+        });
+      }
+
+      updateSeasonAvailability();
+    }
+
+    if (!splashAlreadySeen) {
+      window.sessionStorage.setItem('datagol_splash_seen', '1');
+      window.setTimeout(function () {
+        if (splash) {
+          splash.classList.add('is-exiting');
+        }
+        window.setTimeout(function () {
+          if (splash) {
+            splash.classList.add('is-hidden');
+          }
+          body.classList.remove('splashing');
+          body.classList.add('splash-done');
+          if (onboardingRequired) {
+            openOnboarding();
+          }
+          window.setTimeout(function () {
+            if (splash && splash.parentNode) {
+              splash.parentNode.removeChild(splash);
+            }
+          }, 300);
+        }, 380);
+      }, 3000);
+    } else if (onboardingRequired) {
+      body.classList.add('splash-done');
+      openOnboarding();
+    } else {
+      body.classList.add('splash-done');
+    }
+  })();
+</script>

@@ -1,0 +1,147 @@
+<script>
+  (function () {
+    function bindEloChart(chart) {
+      var tooltip = document.querySelector('[data-elo-tooltip-box]');
+      var svg = chart.querySelector('.elo-svg');
+      var hitPoints = Array.prototype.slice.call(chart.querySelectorAll('.elo-hit-point'));
+      var legend = chart.querySelector('.elo-legend');
+
+      if (!tooltip || !svg || !hitPoints.length) {
+        return;
+      }
+
+      // Initialize team visibility state
+      var activeTeams = {};
+      var legendItems = chart.querySelectorAll('.elo-item');
+      legendItems.forEach(function (item) {
+        var teamId = item.getAttribute('data-team-id');
+        var isActive = item.getAttribute('data-team-active') === 'true';
+        activeTeams[teamId] = isActive;
+      });
+
+      // Function to update SVG visibility based on active teams
+      function updateTeamVisibility() {
+        chart.querySelectorAll('[data-team]').forEach(function (group) {
+          var teamId = group.getAttribute('data-team');
+          var isActive = activeTeams[teamId];
+          group.style.display = isActive ? '' : 'none';
+        });
+      }
+
+      // Add click handlers to legend items
+      if (legend) {
+        legendItems.forEach(function (item) {
+          item.style.cursor = 'pointer';
+          item.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var teamId = item.getAttribute('data-team-id');
+            activeTeams[teamId] = !activeTeams[teamId];
+            item.setAttribute('data-team-active', activeTeams[teamId]);
+            updateTeamVisibility();
+          });
+          item.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              item.click();
+            }
+          });
+        });
+        legend.setAttribute('role', 'region');
+        legend.setAttribute('aria-label', 'Legend - click teams to toggle visibility');
+      }
+
+      var hideTimeout;
+      var hoverMarker = svg.querySelector('[data-elo-hover-marker]');
+      if (!hoverMarker) {
+        hoverMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        hoverMarker.setAttribute('data-elo-hover-marker', '');
+        hoverMarker.setAttribute('r', '6.5');
+        hoverMarker.setAttribute('fill', 'none');
+        hoverMarker.setAttribute('stroke', 'currentColor');
+        hoverMarker.setAttribute('stroke-width', '2');
+        hoverMarker.setAttribute('opacity', '0');
+        hoverMarker.setAttribute('pointer-events', 'none');
+        svg.appendChild(hoverMarker);
+      }
+
+      function showTooltip(target, event) {
+        clearTimeout(hideTimeout);
+        var team = target.getAttribute('data-elo-team') || '';
+        var color = target.getAttribute('data-elo-color') || '#0a66c2';
+        var dateText = target.getAttribute('data-elo-date') || '';
+        var eloText = target.getAttribute('data-elo-elo') || '';
+
+        if (!team || !dateText || !eloText) {
+          return;
+        }
+
+        tooltip.textContent = team + '\n' + dateText + '\nELO: ' + eloText;
+        tooltip.classList.add('is-visible');
+        tooltip.removeAttribute('hidden');
+        hoverMarker.setAttribute('cx', target.getAttribute('cx') || '0');
+        hoverMarker.setAttribute('cy', target.getAttribute('cy') || '0');
+        hoverMarker.setAttribute('stroke', color);
+        hoverMarker.setAttribute('fill', color);
+        hoverMarker.setAttribute('fill-opacity', '0.18');
+        hoverMarker.setAttribute('opacity', '1');
+        moveTooltip(event || target.getBoundingClientRect());
+      }
+
+      function moveTooltip(event) {
+        var x = typeof event.clientX === 'number' ? event.clientX : event.pageX;
+        var y = typeof event.clientY === 'number' ? event.clientY : event.pageY;
+
+        if (x === undefined || y === undefined) {
+          x = event.left + (event.width / 2);
+          y = event.top - 15;
+        }
+
+        var gap = 12;
+        var viewportPadding = 16;
+        var tooltipWidth = tooltip.offsetWidth || 240;
+        var tooltipHeight = tooltip.offsetHeight || 50;
+        var leftPos = x - (tooltipWidth / 2);
+        var topPos = y - tooltipHeight - gap;
+
+        if (leftPos < viewportPadding) {
+          leftPos = viewportPadding;
+        }
+        if (leftPos + tooltipWidth > window.innerWidth - viewportPadding) {
+          leftPos = window.innerWidth - viewportPadding - tooltipWidth;
+        }
+
+        if (topPos < viewportPadding) {
+          topPos = y + gap + 8;
+        }
+
+        tooltip.style.left = leftPos + 'px';
+        tooltip.style.top = topPos + 'px';
+      }
+
+      function hideTooltip() {
+        hideTimeout = setTimeout(function () {
+          tooltip.classList.remove('is-visible');
+          tooltip.setAttribute('hidden', '');
+          hoverMarker.setAttribute('opacity', '0');
+        }, 80);
+      }
+
+      hitPoints.forEach(function (point) {
+        point.addEventListener('mouseenter', function (event) {
+          showTooltip(point, event);
+        });
+        point.addEventListener('mousemove', function (event) {
+          showTooltip(point, event);
+        });
+        point.addEventListener('mouseleave', hideTooltip);
+        point.addEventListener('focus', function () {
+          showTooltip(point, point.getBoundingClientRect());
+        });
+        point.addEventListener('blur', hideTooltip);
+      });
+    }
+
+    document.querySelectorAll('[data-elo-chart]').forEach(bindEloChart);
+  })();
+</script>

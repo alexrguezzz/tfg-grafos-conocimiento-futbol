@@ -1,0 +1,133 @@
+<script>
+  (function () {
+    function closeDropdown(dropdown) {
+      dropdown.classList.remove('open');
+    }
+
+    function closeAllDropdowns(exceptDropdown) {
+      document.querySelectorAll('.dropdown.open').forEach(function (dropdown) {
+        if (dropdown !== exceptDropdown) {
+          closeDropdown(dropdown);
+        }
+      });
+    }
+
+    function bindSingleDropdown(dropdown) {
+      var trigger = dropdown.querySelector('[data-trigger]');
+      var label = dropdown.querySelector('[data-dropdown-label]');
+      var hiddenInput = dropdown.querySelector('[data-value-input]');
+      var options = Array.from(dropdown.querySelectorAll('[data-option]'));
+
+      function updateSelection(value) {
+        if (!hiddenInput || !label) {
+          return;
+        }
+
+        hiddenInput.value = value;
+        var selectedOption = options.find(function (option) {
+          return option.value === value;
+        });
+
+        label.textContent = selectedOption ? selectedOption.textContent.trim() : (dropdown.dataset.defaultLabel || 'Todas');
+        options.forEach(function (option) {
+          option.classList.toggle('is-selected', option.value === value);
+        });
+      }
+
+      if (!trigger || !hiddenInput || !label) {
+        return;
+      }
+
+      updateSelection(hiddenInput.value || 'all');
+
+      trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        var isOpen = dropdown.classList.contains('open');
+        closeAllDropdowns(dropdown);
+        dropdown.classList.toggle('open', !isOpen);
+      });
+
+      options.forEach(function (option) {
+        option.addEventListener('click', function () {
+          updateSelection(option.value);
+          closeDropdown(dropdown);
+        });
+      });
+    }
+
+    function bindJornadasDropdown(dropdown) {
+      var trigger = dropdown.querySelector('[data-trigger]');
+      var label = dropdown.querySelector('[data-dropdown-label]');
+      var all = dropdown.querySelector('[data-all]');
+      var jornadas = Array.from(dropdown.querySelectorAll('[data-jornada]'));
+
+      function selectedJornadas() {
+        return jornadas.filter(function (input) {
+          return input.checked;
+        });
+      }
+
+      function updateLabel() {
+        var selected = selectedJornadas();
+        if (!label || !all) {
+          return;
+        }
+        if (all.checked || selected.length === 0) {
+          label.textContent = 'Todas';
+          return;
+        }
+        if (selected.length === 1) {
+          label.textContent = 'Jornada ' + selected[0].value;
+          return;
+        }
+        label.textContent = selected.length + ' jornadas';
+      }
+
+      if (!trigger || !label || !all) {
+        return;
+      }
+
+      all.checked = selectedJornadas().length === 0;
+      updateLabel();
+
+      trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        var isOpen = dropdown.classList.contains('open');
+        closeAllDropdowns(dropdown);
+        dropdown.classList.toggle('open', !isOpen);
+      });
+
+      all.addEventListener('change', function () {
+        if (all.checked) {
+          jornadas.forEach(function (input) {
+            input.checked = false;
+          });
+        }
+        updateLabel();
+      });
+
+      jornadas.forEach(function (input) {
+        input.addEventListener('change', function () {
+          if (input.checked) {
+            all.checked = false;
+          }
+          if (selectedJornadas().length === 0) {
+            all.checked = true;
+          }
+          updateLabel();
+        });
+      });
+    }
+
+    document.querySelectorAll('[data-single-dropdown]').forEach(bindSingleDropdown);
+    document.querySelectorAll('[data-dropdown]').forEach(bindJornadasDropdown);
+
+    document.addEventListener('click', function (event) {
+      document.querySelectorAll('.dropdown.open').forEach(function (dropdown) {
+        if (!dropdown.contains(event.target)) {
+          closeDropdown(dropdown);
+        }
+      });
+    });
+  })();
+</script>

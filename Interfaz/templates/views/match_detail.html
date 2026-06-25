@@ -1,0 +1,296 @@
+{% macro render_table(headers, rows) -%}
+  <div class="body table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for header in headers %}
+            <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+              <td>{% include "partials/table_cell.html" %}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{%- endmacro %}
+
+{% macro render_grouped_table(header_groups, headers, rows) -%}
+  <div class="body table-wrap player-stats-table-wrap">
+    <table class="player-stats-table">
+      <thead>
+        <tr class="player-stats-group-row">
+          {% for group in header_groups %}
+            <th colspan="{{ group.span }}">{{ group.label }}</th>
+          {% endfor %}
+        </tr>
+        <tr>
+          {% for header in headers %}
+            {% if header is mapping %}
+              <th{% if header.title %} title="{{ header.title }}"{% endif %}>{{ header.text }}</th>
+            {% else %}
+              <th>{{ header }}</th>
+            {% endif %}
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+              <td>{% include "partials/table_cell.html" %}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{%- endmacro %}
+
+<section class="grid match-detail-grid" data-view="match-detail">
+  {% if match_detail and match_detail.timeline %}
+    <article class="panel panel--overflow-visible">
+      <div class="head"><h3>Linea de tiempo</h3></div>
+      <div class="body">
+        <div class="timeline-horizontal" aria-label="Linea de tiempo del partido" style="--half-progress: {{ match_detail.timeline_half_left }}%;">
+          <div class="timeline-axis" aria-hidden="true">
+            <span class="timeline-bound is-start">Inicio</span>
+            <span class="timeline-line">
+              <span class="timeline-tick is-half">Descanso</span>
+            </span>
+            <span class="timeline-bound is-end">Final</span>
+          </div>
+          <div class="timeline-event-layer">
+            {% for connector in match_detail.timeline_connectors %}
+              <span
+                class="timeline-connector is-{{ connector.side }}"
+                style="--event-progress: {{ connector.left }}%; --lane: {{ connector.lane }};"
+                aria-hidden="true"
+              ></span>
+            {% endfor %}
+            {% for item in match_detail.timeline %}
+              <button
+                type="button"
+                class="timeline-event {{ item.class }} is-{{ item.side }}"
+                style="--event-progress: {{ item.left }}%; --lane: {{ item.lane }};"
+                aria-label="{{ item.detail }}"
+              >
+                <span class="timeline-graphic" aria-hidden="true">
+                  <img src="{{ url_for('static', filename=item.icon_path) }}" alt="">
+                </span>
+                <span class="timeline-tooltip" role="tooltip">{{ item.detail }}</span>
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </article>
+  {% endif %}
+
+  {% if match_detail and match_detail.result_summary %}
+    <article class="panel match-result-card">
+      <div class="head"><h3>Resultado</h3></div>
+      <div class="body">
+        <div class="match-result-teams">
+          <strong>{{ match_detail.result_summary.home }}</strong>
+          <span>vs</span>
+          <strong>{{ match_detail.result_summary.away }}</strong>
+        </div>
+        <div class="match-result-grid">
+          {% for item in match_detail.result_summary.rows %}
+            <div class="match-result-item {% if item.label == 'Final' %}is-final{% endif %}">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.score }}</strong>
+              <small>{{ item.result }}</small>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </article>
+  {% endif %}
+
+  {% if match_detail and (match_detail.team_stats or match_detail.player_stats) %}
+    <section class="match-stats-row">
+      {% if match_detail.team_stats %}
+        <article class="table-card team-stats-card" data-team-stats>
+          <div class="head team-stats-head">
+            <h2>Estadisticas de equipos</h2>
+            {% if match_detail.team_stats.sections|length > 1 %}
+              <div class="segmented" role="group" aria-label="Secciones de estadisticas de equipo">
+                {% for section in match_detail.team_stats.sections %}
+                  <button type="button" class="{% if loop.first %}is-active{% endif %}" data-team-stat-filter="{{ loop.index0 }}">
+                    {{ section.title }}
+                    <span>{{ section.lines|length }}</span>
+                  </button>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <div class="body team-compare-stats">
+            <div class="team-compare-head">
+              <strong>{{ match_detail.team_stats.home }}</strong>
+              <span>Estadistica</span>
+              <strong>{{ match_detail.team_stats.away }}</strong>
+            </div>
+            {% for section in match_detail.team_stats.sections %}
+              <div class="team-compare-section {% if not loop.first %}is-hidden{% endif %}" data-team-stat-section="{{ loop.index0 }}">
+                <h3 class="team-compare-section-title">{{ section.title }}</h3>
+                {% for row in section.lines %}
+                  <div class="team-compare-row" style="--home-pct: {{ row.home_pct }}%; --away-pct: {{ row.away_pct }}%;">
+                    <span class="team-compare-value is-home">{{ row.home }}</span>
+                    <span class="team-compare-label">{{ row.label }}</span>
+                    <span class="team-compare-value is-away">{{ row.away }}</span>
+                    <div class="team-compare-bar" aria-hidden="true">
+                      <span class="team-compare-fill is-home"></span>
+                      <span class="team-compare-fill is-away"></span>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+      {% endif %}
+
+      {% if match_detail.player_stats %}
+        <article class="table-card player-stats-card" data-player-stats>
+          <div class="head">
+            <h2>Estadisticas de jugadores</h2>
+            <label class="inline-filter">
+              <span>Equipo</span>
+              <select data-player-team-filter>
+                {% for team in match_detail.player_stats.teams %}
+                  <option value="{{ team }}">{{ team }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          <div class="player-stats-tables">
+            {% for team in match_detail.player_stats.teams %}
+              <div class="player-team-table {% if not loop.first %}is-hidden{% endif %}" data-player-team="{{ team }}">
+                {{ render_grouped_table(match_detail.player_stats.header_groups, match_detail.player_stats.headers, match_detail.player_stats.rows_by_team[team]) }}
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if panels %}
+    {% for panel in panels %}
+      <article class="panel">
+        <div class="head"><h3>{{ panel.title }}</h3></div>
+        <div class="body">
+          {% if panel.kind == 'html' %}
+            {{ panel.html | safe }}
+          {% else %}
+            <p>{{ panel.text }}</p>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  {% elif not match_detail %}
+    <article class="empty">Informacion no disponible</article>
+  {% endif %}
+</section>
+
+<script>
+  (function () {
+    var title = document.querySelector('.title-inline-result');
+    if (!title) {
+      return;
+    }
+
+    function fitTitle() {
+      title.style.fontSize = '';
+      var size = parseFloat(window.getComputedStyle(title).fontSize) || 52;
+      var minSize = 14;
+      while (title.scrollWidth > title.clientWidth && size > minSize) {
+        size -= 1;
+        title.style.fontSize = size + 'px';
+      }
+    }
+
+    window.addEventListener('resize', fitTitle);
+    window.requestAnimationFrame(fitTitle);
+  }());
+
+  document.querySelectorAll('.timeline-horizontal').forEach(function (timeline) {
+    var events = Array.prototype.slice.call(timeline.querySelectorAll('.timeline-event'));
+    if (!events.length) {
+      return;
+    }
+
+    function closeAll(except) {
+      events.forEach(function (event) {
+        if (event !== except) {
+          event.classList.remove('is-open');
+        }
+      });
+    }
+
+    events.forEach(function (event) {
+      event.addEventListener('click', function (evt) {
+        evt.stopPropagation();
+        var shouldOpen = !event.classList.contains('is-open');
+        closeAll(event);
+        event.classList.toggle('is-open', shouldOpen);
+      });
+    });
+
+    document.addEventListener('click', function () {
+      closeAll();
+    });
+
+    document.addEventListener('keydown', function (evt) {
+      if (evt.key === 'Escape') {
+        closeAll();
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-team-stats]').forEach(function (card) {
+    var buttons = Array.from(card.querySelectorAll('[data-team-stat-filter]'));
+    var sections = Array.from(card.querySelectorAll('[data-team-stat-section]'));
+
+    if (!buttons.length || !sections.length) {
+      return;
+    }
+
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        var key = button.getAttribute('data-team-stat-filter');
+
+        buttons.forEach(function (candidate) {
+          candidate.classList.toggle('is-active', candidate === button);
+        });
+        sections.forEach(function (section) {
+          section.classList.toggle('is-hidden', section.getAttribute('data-team-stat-section') !== key);
+        });
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-player-stats]').forEach(function (card) {
+    var select = card.querySelector('[data-player-team-filter]');
+    if (!select) {
+      return;
+    }
+
+    function refresh() {
+      card.querySelectorAll('[data-player-team]').forEach(function (table) {
+        table.classList.toggle('is-hidden', table.getAttribute('data-player-team') !== select.value);
+      });
+    }
+
+    select.addEventListener('change', refresh);
+    refresh();
+  });
+</script>
