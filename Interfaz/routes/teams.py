@@ -247,7 +247,7 @@ def register_teams_routes(app, deps) -> None:
         rows = run_query(
             prefixes
             + f"""
-            SELECT ?competitionLabel ?seasonLabel ?playerLabel ?position ?matches ?minutes ?goals ?penaltyGoals ?assists ?shots ?xg ?nonPenaltyXg ?xa ?keyPasses ?xgChain ?xgBuildup ?yellow ?red
+            SELECT ?competitionLabel ?seasonLabel ?playerLabel ?matches ?minutes ?goals ?penaltyGoals ?assists ?shots ?xg ?nonPenaltyXg ?xa ?keyPasses ?xgChain ?xgBuildup ?yellow ?red
             WHERE {{
               ?team a class:Team ; rdfs:label {sparql_string(team_label)} .
               ?stats a class:PlayerCompetitionSeasonStats ;
@@ -260,7 +260,6 @@ def register_teams_routes(app, deps) -> None:
               ?competition rdfs:label ?competitionLabel .
               ?season rdfs:label ?seasonLabel .
 
-              OPTIONAL {{ ?stats prop:position ?position . }}
               OPTIONAL {{ ?stats prop:matches ?matches . }}
               OPTIONAL {{ ?stats prop:minutes ?minutes . }}
               OPTIONAL {{ ?stats prop:goals ?goals . }}
@@ -294,7 +293,6 @@ def register_teams_routes(app, deps) -> None:
                 link_cell(row.get("playerLabel", "-"), player_href(row.get("playerLabel", ""), filters)),
                 row.get("competitionLabel", "-"),
                 row.get("seasonLabel", "-"),
-                row.get("position", "-"),
                 format_number(row.get("matches", "")),
                 format_number(row.get("minutes", "")),
                 format_number(row.get("goals", "")),
@@ -473,7 +471,7 @@ def register_teams_routes(app, deps) -> None:
                     "elo_at_date": elo_at_date,
                     "season_options": available_seasons,
                     "squad_selected_season": selected_squad_season,
-                    "squad_headers": ["Jugador", "Competicion", "Temporada", "Pos", "PJ", "Min", "G", "G pen.", "A", "Tiros", "xG", "xG sin pen.", "xA", "Pases clave", "xGChain", "xGBuildup", "TA", "TR"],
+                    "squad_headers": ["Jugador", "Competicion", "Temporada", "PJ", "Min", "G", "G pen.", "A", "Tiros", "xG", "xG sin pen.", "xA", "Pases clave", "xGChain", "xGBuildup", "TA", "TR"],
                     "squad_rows": squad_rows,
                     "match_selected_season": selected_match_season,
                     "match_headers": ["Fecha y hora", "Jornada", "Equipo local", "Equipo visitante", "Marcador", "Detalle"],
