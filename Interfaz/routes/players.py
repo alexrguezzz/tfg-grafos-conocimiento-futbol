@@ -482,7 +482,7 @@ def register_players_routes(app, deps) -> None:
               BIND(COALESCE(xsd:integer(?goals), 0) AS ?goalsValue)
               BIND(COALESCE(xsd:integer(?nonPenaltyGoals), 0) AS ?nonPenaltyGoalsValue)
               BIND(IF(?goalsValue > ?nonPenaltyGoalsValue, ?goalsValue - ?nonPenaltyGoalsValue, 0) AS ?penaltyGoals)
-              {onboarding_resource_clauses(competition_var='?competition', season_var='?season')}
+              {onboarding_resource_clauses(competition_var='?competition')}
             }}
             ORDER BY DESC(?seasonLabel) ?competitionLabel ?teamLabel
             """
