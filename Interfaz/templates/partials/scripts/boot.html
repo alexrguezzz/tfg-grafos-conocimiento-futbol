@@ -23,30 +23,99 @@
     }
 
     var scrollKey = 'datagol_scroll_pos';
+    var pendingScrollKey = '';
+
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    function scrollKeyFromUrl(value) {
+      try {
+        var url = new URL(value, window.location.href);
+        if (url.origin !== window.location.origin) {
+          return '';
+        }
+        return url.pathname + url.search;
+      } catch (err) {
+        return '';
+      }
+    }
+
     function currentScrollKey() {
-      return window.location.pathname + window.location.search;
+      return scrollKeyFromUrl(window.location.href);
+    }
+
+    function formScrollKey(form) {
+      if (!form) {
+        return '';
+      }
+
+      var method = (form.getAttribute('method') || 'get').toLowerCase();
+      if (method !== 'get') {
+        return '';
+      }
+
+      var url = new URL(form.getAttribute('action') || window.location.href, window.location.href);
+      url.search = '';
+      new URLSearchParams(new FormData(form)).forEach(function (value, key) {
+        url.searchParams.append(key, value);
+      });
+      return scrollKeyFromUrl(url.toString());
+    }
+
+    function saveScrollPosition(key) {
+      var targetKey = key || currentScrollKey();
+      if (!targetKey) {
+        return;
+      }
+
+      window.sessionStorage.setItem(scrollKey, JSON.stringify({
+        key: targetKey,
+        y: window.scrollY
+      }));
+    }
+
+    function rememberFormScroll(form) {
+      pendingScrollKey = formScrollKey(form);
+      if (pendingScrollKey) {
+        saveScrollPosition(pendingScrollKey);
+      }
+    }
+
+    function restoreScrollPosition() {
+      var rawPos = window.sessionStorage.getItem(scrollKey);
+      if (rawPos === null) {
+        return;
+      }
+
+      try {
+        var pos = JSON.parse(rawPos);
+        if (pos && pos.key === currentScrollKey()) {
+          window.scrollTo(0, parseInt(pos.y, 10) || 0);
+        }
+      } catch (err) {
+        // Ignore legacy scroll values that were not scoped to a URL.
+      }
+      window.sessionStorage.removeItem(scrollKey);
     }
 
     window.addEventListener('beforeunload', function () {
-      window.sessionStorage.setItem(scrollKey, JSON.stringify({
-        key: currentScrollKey(),
-        y: window.scrollY
-      }));
+      saveScrollPosition(pendingScrollKey || currentScrollKey());
     });
 
-    document.addEventListener('DOMContentLoaded', function () {
-      var rawPos = window.sessionStorage.getItem(scrollKey);
-      if (rawPos !== null) {
-        try {
-          var pos = JSON.parse(rawPos);
-          if (pos && pos.key === currentScrollKey()) {
-            window.scrollTo(0, parseInt(pos.y, 10) || 0);
-          }
-        } catch (err) {
-          // Ignore legacy scroll values that were not scoped to a URL.
-        }
-        window.sessionStorage.removeItem(scrollKey);
+    document.addEventListener('submit', function (event) {
+      rememberFormScroll(event.target);
+    }, true);
+
+    document.addEventListener('change', function (event) {
+      if (event.target && event.target.matches('select') && event.target.form) {
+        rememberFormScroll(event.target.form);
       }
+    }, true);
+
+    document.addEventListener('DOMContentLoaded', function () {
+      restoreScrollPosition();
+      window.requestAnimationFrame(restoreScrollPosition);
     });
   })();
 </script>

@@ -5,7 +5,7 @@ import unicodedata
 
 from flask import request
 
-from services.utils import format_display_date, format_number, format_numeric_plain, parse_datetime, safe_int
+from services.utils import format_display_date, format_number, format_numeric_plain, parse_datetime
 
 
 def register_teams_routes(app, deps) -> None:
@@ -312,6 +312,13 @@ def register_teams_routes(app, deps) -> None:
         ]
 
     def team_match_scope_clauses(filters: dict[str, object]) -> str:
+        match_filters = {
+            "competition": "all",
+            "season": str(filters.get("season", "all")).strip() or "all",
+            "jornadas": [],
+            "date_from": "",
+            "date_to": "",
+        }
         clauses = [
             """
               ?m prop:belongsToCompetition ?_teamMatchCompetition .
@@ -322,13 +329,11 @@ def register_teams_routes(app, deps) -> None:
         ]
         onboarding_filters = onboarding_resource_clauses(competition_var="?_teamMatchCompetition")
         base_filters = filter_clauses(
-            filters,
+            match_filters,
             competition_var="?_teamMatchCompetition",
             season_var="?_teamMatchSeason",
             competition_label="?_teamMatchCompetitionLabel",
             season_label="?_teamMatchSeasonLabel",
-            week_field="?week",
-            date_field="?date",
         )
         if onboarding_filters:
             clauses.append(onboarding_filters)
@@ -336,8 +341,7 @@ def register_teams_routes(app, deps) -> None:
             clauses.append(base_filters)
         return "\n              ".join(clauses)
 
-    def fetch_team_matches(team_label: str, filters: dict[str, object], q: str, season_mode: str = "all") -> list[list[object]]:
-        order_clause = "ORDER BY DESC(COALESCE(?dateTime, ?date)) ?homeLabel ?awayLabel" if season_mode == "all" else "ORDER BY ?weekSort COALESCE(?dateTime, ?date) ?homeLabel ?awayLabel"
+    def fetch_team_matches(team_label: str, filters: dict[str, object], q: str) -> list[list[object]]:
         rows = run_query(
             prefixes
             + f"""
@@ -370,30 +374,15 @@ def register_teams_routes(app, deps) -> None:
 
               {team_match_scope_clauses(filters)}
               {text_filter(q, '?homeLabel', '?awayLabel')}
-              BIND(IF(BOUND(?week), xsd:integer(?week), 999) AS ?weekSort)
             }}
-            {order_clause}
+            ORDER BY DESC(COALESCE(?dateTime, ?date)) ?homeLabel ?awayLabel
             LIMIT 500
             """
         )
-        if season_mode == "all":
-            rows.sort(
-                key=lambda row: (
-                    parse_datetime(row.get("dateTime", "")) or parse_datetime(row.get("date", "")) or dt_datetime.min,
-                    row.get("homeLabel", ""),
-                    row.get("awayLabel", ""),
-                ),
-                reverse=True,
-            )
-        else:
-            rows.sort(
-                key=lambda row: (
-                    safe_int(row.get("week", "999")) if safe_int(row.get("week", "999")) > 0 else 999,
-                    parse_datetime(row.get("dateTime", "")) or parse_datetime(row.get("date", "")) or dt_datetime.max,
-                    row.get("homeLabel", ""),
-                    row.get("awayLabel", ""),
-                )
-            )
+        rows.sort(
+            key=lambda row: parse_datetime(row.get("dateTime", "")) or parse_datetime(row.get("date", "")) or dt_datetime.min,
+            reverse=True,
+        )
         team_matches: list[list[object]] = []
         for row in rows:
             if normalize_label(team_label) not in {normalize_label(row.get("homeLabel")), normalize_label(row.get("awayLabel"))}:
@@ -475,7 +464,7 @@ def register_teams_routes(app, deps) -> None:
                     "squad_rows": squad_rows,
                     "match_selected_season": selected_match_season,
                     "match_headers": ["Fecha y hora", "Jornada", "Equipo local", "Equipo visitante", "Marcador", "Detalle"],
-                    "match_rows": fetch_team_matches(team_label, match_filters, q, selected_match_season),
+                    "match_rows": fetch_team_matches(team_label, match_filters, q),
                 }
                 cards = [
                     {"label": "Jugadores", "value": str(squad_count)},

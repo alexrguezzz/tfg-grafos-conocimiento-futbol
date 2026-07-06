@@ -136,20 +136,16 @@ def register_players_routes(app, deps) -> None:
             ),
         ]
 
-    def season_kpi_filters(filters: dict[str, object]) -> dict[str, object]:
+    def player_detail_filters() -> dict[str, object]:
         return {
-            "competition": filters.get("competition", "all"),
-            "season": filters.get("season", "all"),
+            "competition": "all",
+            "season": "all",
             "jornadas": [],
             "date_from": "",
             "date_to": "",
         }
 
-    def kpi_subtitle(filters: dict[str, object]) -> str:
-        season = str(filters.get("season", "all")).strip()
-        if season and season != "all":
-            return f"Ficha del jugador en la temporada {season}"
-
+    def kpi_subtitle() -> str:
         onboarding_seasons = [value for value in session.get("onboarding_seasons", []) if value]
         if onboarding_seasons:
             selected_season = ", ".join(onboarding_seasons)
@@ -192,8 +188,8 @@ def register_players_routes(app, deps) -> None:
             "full_name": full_name,
         }
 
-    def fetch_player_kpis(player_label: str, filters: dict[str, object]) -> dict[str, str]:
-        scoped_filters = season_kpi_filters(filters)
+    def fetch_player_kpis(player_label: str) -> dict[str, str]:
+        scoped_filters = player_detail_filters()
         rows = run_query(
             prefixes
             + f"""
@@ -237,8 +233,8 @@ def register_players_routes(app, deps) -> None:
             "red": format_number(row.get("red", "")),
         }
 
-    def fetch_player_season_summary(player_label: str, filters: dict[str, object]) -> dict[str, object]:
-        scoped_filters = season_kpi_filters(filters)
+    def fetch_player_season_summary(player_label: str) -> dict[str, object]:
+        scoped_filters = player_detail_filters()
         rows = run_query(
             prefixes
             + f"""
@@ -305,7 +301,8 @@ def register_players_routes(app, deps) -> None:
         )
         return rows[0] if rows else {}
 
-    def fetch_player_match_summary(player_label: str, filters: dict[str, object]) -> dict[str, object]:
+    def fetch_player_match_summary(player_label: str) -> dict[str, object]:
+        scoped_filters = player_detail_filters()
         rows = run_query(
             prefixes
             + f"""
@@ -383,15 +380,15 @@ def register_players_routes(app, deps) -> None:
               BIND(COALESCE(xsd:double(?foulsSufferedRaw), 0) AS ?foulsSufferedValue)
               BIND(COALESCE(xsd:double(?yellowRaw), 0) AS ?yellowValue)
               BIND(COALESCE(xsd:double(?redRaw), 0) AS ?redValue)
-              {match_scope_clauses(filters, match_var='?m', date_var='?date', week_var='?week')}
+              {match_scope_clauses(scoped_filters, match_var='?m', date_var='?date', week_var='?week')}
             }}
             """
         )
         return rows[0] if rows else {}
 
-    def build_player_stats(player_label: str, filters: dict[str, object]) -> dict[str, object]:
-        season_stats = fetch_player_season_summary(player_label, filters)
-        match_stats = fetch_player_match_summary(player_label, filters)
+    def build_player_stats(player_label: str) -> dict[str, object]:
+        season_stats = fetch_player_season_summary(player_label)
+        match_stats = fetch_player_match_summary(player_label)
         stats = {
             **match_stats,
             "matches": first_present(season_stats.get("matches", ""), match_stats.get("appearances", ""), match_stats.get("match_records", "")),
@@ -485,6 +482,7 @@ def register_players_routes(app, deps) -> None:
               BIND(COALESCE(xsd:integer(?goals), 0) AS ?goalsValue)
               BIND(COALESCE(xsd:integer(?nonPenaltyGoals), 0) AS ?nonPenaltyGoalsValue)
               BIND(IF(?goalsValue > ?nonPenaltyGoalsValue, ?goalsValue - ?nonPenaltyGoalsValue, 0) AS ?penaltyGoals)
+              {onboarding_resource_clauses(competition_var='?competition', season_var='?season')}
             }}
             ORDER BY DESC(?seasonLabel) ?competitionLabel ?teamLabel
             """
@@ -540,6 +538,7 @@ def register_players_routes(app, deps) -> None:
         }.get(key, "-")
 
     def fetch_player_matches(player_label: str, filters: dict[str, object]) -> dict[str, list[list[object]]]:
+        scoped_filters = player_detail_filters()
         rows = run_query(
             prefixes
             + f"""
@@ -581,7 +580,7 @@ def register_players_routes(app, deps) -> None:
               OPTIONAL {{ ?pmp prop:minutes ?minutes . }}
               OPTIONAL {{ ?pmp prop:reason ?reason . }}
 
-              {match_scope_clauses(filters, match_var='?m', date_var='?date', week_var='?week')}
+              {match_scope_clauses(scoped_filters, match_var='?m', date_var='?date', week_var='?week')}
               BIND(COALESCE(?dateTime, ?date) AS ?matchSort)
             }}
             ORDER BY DESC(?matchSort)
@@ -629,8 +628,8 @@ def register_players_routes(app, deps) -> None:
             if player_label:
                 player_identity = fetch_player_identity(player_label)
                 lookup_label = player_identity["label"]
-                kpis = fetch_player_kpis(lookup_label, filters)
-                player_stats = build_player_stats(lookup_label, filters)
+                kpis = fetch_player_kpis(lookup_label)
+                player_stats = build_player_stats(lookup_label)
                 cards = [
                     {"label": "Partidos", "value": kpis["matches"]},
                     {"label": "Minutos totales", "value": kpis["minutes"]},
@@ -665,7 +664,7 @@ def register_players_routes(app, deps) -> None:
                 return render_page(
                     "players",
                     title=player_identity["known_as"],
-                    subtitle=kpi_subtitle(filters),
+                    subtitle=kpi_subtitle(),
                     cards=cards,
                     panels=[],
                     extra_context={"player_detail": player_detail},
